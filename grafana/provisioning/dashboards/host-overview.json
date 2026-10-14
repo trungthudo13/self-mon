@@ -970,7 +970,7 @@
   "refresh": "5s",
   "schemaVersion": 41,
   "tags": [
-    "podman",
+    "docker",
     "local-performance-lab"
   ],
   "templating": {

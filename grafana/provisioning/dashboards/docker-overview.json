@@ -24,7 +24,7 @@
   "panels": [
     {
       "id": 1,
-      "title": "Containers",
+      "title": "Observed Containers",
       "type": "stat",
       "gridPos": {
         "x": 0,
@@ -43,7 +43,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "count(count by(name) (podman_container_info))",
+          "expr": "count(count by(name) (container_last_seen{job=\"cadvisor\",image!=\"\",name!=\"\"}))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -85,7 +85,7 @@
     },
     {
       "id": 2,
-      "title": "Healthy",
+      "title": "cAdvisor Up",
       "type": "stat",
       "gridPos": {
         "x": 4,
@@ -104,7 +104,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "count((podman_container_health == 0) * on(id) group_left(name) podman_container_info)",
+          "expr": "up{job=\"cadvisor\"}",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -120,8 +120,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
               }
             ]
           }
@@ -142,7 +146,8 @@
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto"
-      }
+      },
+      "description": "Prometheus scrape status: 1 = up, 0 = down. This is not Docker HEALTHCHECK status."
     },
     {
       "id": 3,
@@ -165,7 +170,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(sum by(name) (rate(podman_container_cpu_seconds_total[1m]) * on(id) group_left(name) podman_container_info))",
+          "expr": "sum(sum by(name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",image!=\"\",name!=\"\"}[$__rate_interval])))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -227,7 +232,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(max by(name) (podman_container_mem_usage_bytes * on(id) group_left(name) podman_container_info))",
+          "expr": "sum(max by(name) (container_memory_working_set_bytes{job=\"cadvisor\",image!=\"\",name!=\"\"}))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -266,7 +271,8 @@
         "colorMode": "value",
         "graphMode": "area",
         "justifyMode": "auto"
-      }
+      },
+      "description": "Container memory working set (bytes), excluding inactive file cache."
     },
     {
       "id": 5,
@@ -289,7 +295,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(sum by(name) (rate(podman_container_net_input_total[1m]) * on(id) group_left(name) podman_container_info))",
+          "expr": "sum(sum by(name) (rate(container_network_receive_bytes_total{job=\"cadvisor\",image!=\"\",name!=\"\"}[$__rate_interval])))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -351,7 +357,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum(sum by(name) (rate(podman_container_net_output_total[1m]) * on(id) group_left(name) podman_container_info))",
+          "expr": "sum(sum by(name) (rate(container_network_transmit_bytes_total{job=\"cadvisor\",image!=\"\",name!=\"\"}[$__rate_interval])))",
           "legendFormat": "",
           "range": false,
           "instant": true,
@@ -413,7 +419,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by(name) (rate(podman_container_cpu_seconds_total[1m]) * on(id) group_left(name) podman_container_info)",
+          "expr": "sum by(name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",image!=\"\",name!=\"\"}[$__rate_interval]))",
           "legendFormat": "{{name}}",
           "range": true,
           "instant": false,
@@ -472,7 +478,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by(name) (podman_container_mem_usage_bytes * on(id) group_left(name) podman_container_info)",
+          "expr": "max by(name) (container_memory_working_set_bytes{job=\"cadvisor\",image!=\"\",name!=\"\"})",
           "legendFormat": "{{name}}",
           "range": true,
           "instant": false,
@@ -508,7 +514,8 @@
           ],
           "fields": ""
         }
-      }
+      },
+      "description": "Container memory working set (bytes), excluding inactive file cache."
     },
     {
       "id": 9,
@@ -531,7 +538,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by(name) (rate(podman_container_cpu_seconds_total[1m]) * on(id) group_left(name) podman_container_info)",
+          "expr": "sum by(name) (rate(container_cpu_usage_seconds_total{job=\"cadvisor\",image!=\"\",name!=\"\"}[$__rate_interval]))",
           "legendFormat": "{{name}}",
           "range": true,
           "instant": false,
@@ -623,7 +630,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "max by(name) (podman_container_mem_usage_bytes * on(id) group_left(name) podman_container_info)",
+          "expr": "max by(name) (container_memory_working_set_bytes{job=\"cadvisor\",image!=\"\",name!=\"\"})",
           "legendFormat": "{{name}}",
           "range": true,
           "instant": false,
@@ -692,7 +699,8 @@
             "max"
           ]
         }
-      }
+      },
+      "description": "Container memory working set (bytes), excluding inactive file cache."
     },
     {
       "id": 11,
@@ -715,7 +723,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by(name) (rate(podman_container_net_input_total[1m]) * on(id) group_left(name) podman_container_info)",
+          "expr": "sum by(name) (rate(container_network_receive_bytes_total{job=\"cadvisor\",image!=\"\",name!=\"\"}[$__rate_interval]))",
           "legendFormat": "RX {{name}}",
           "range": true,
           "instant": false,
@@ -729,7 +737,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by(name) (rate(podman_container_net_output_total[1m]) * on(id) group_left(name) podman_container_info)",
+          "expr": "sum by(name) (rate(container_network_transmit_bytes_total{job=\"cadvisor\",image!=\"\",name!=\"\"}[$__rate_interval]))",
           "legendFormat": "TX {{name}}",
           "range": true,
           "instant": false,
@@ -804,7 +812,7 @@
   "refresh": "5s",
   "schemaVersion": 41,
   "tags": [
-    "podman",
+    "docker",
     "local-performance-lab"
   ],
   "templating": {
@@ -816,8 +824,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Podman Overview",
-  "uid": "podman-overview",
-  "version": 2,
+  "title": "Docker Overview",
+  "uid": "docker-overview",
+  "version": 3,
   "weekStart": ""
 }

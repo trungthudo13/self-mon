@@ -1,9 +1,9 @@
-discovery.docker "podman" {
+discovery.docker "docker" {
   host = "unix:///var/run/docker.sock"
 }
 
-discovery.relabel "podman" {
-  targets = discovery.docker.podman.targets
+discovery.relabel "docker" {
+  targets = discovery.docker.docker.targets
 
   rule {
     source_labels = ["__meta_docker_container_name"]
@@ -18,9 +18,10 @@ discovery.relabel "podman" {
   }
 }
 
-loki.source.docker "podman" {
+loki.source.docker "docker" {
   host       = "unix:///var/run/docker.sock"
-  targets    = discovery.relabel.podman.output
+  targets    = discovery.docker.docker.targets
+  relabel_rules = discovery.relabel.docker.rules
   forward_to = [loki.write.local.receiver]
 }
 

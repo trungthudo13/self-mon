@@ -1,3 +1,5 @@
+name: observability
+
 services:
   grafana:
     image: docker.io/grafana/grafana:latest
@@ -45,19 +47,23 @@ services:
     networks:
       - monitoring
 
-  podman-exporter:
-    image: quay.io/navidys/prometheus-podman-exporter:latest
-    container_name: monitor-podman-exporter
+  cadvisor:
+    image: ghcr.io/google/cadvisor:0.55.1
+    container_name: monitor-cadvisor
     restart: unless-stopped
-    userns_mode: keep-id
-    environment:
-      CONTAINER_HOST: unix:///run/podman/podman.sock
-      HOME: /tmp
-      XDG_CONFIG_HOME: /tmp/.config
+    privileged: true
+    cgroup: host
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    command:
+      - "--docker_only=true"
+      - "--housekeeping_interval=5s"
     volumes:
-      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/podman/podman.sock:ro
-    security_opt:
-      - label=disable
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - ${DOCKER_DATA_ROOT:-/var/lib/docker}:${DOCKER_DATA_ROOT:-/var/lib/docker}:ro
+      - /dev/disk:/dev/disk:ro
     networks:
       - monitoring
 
@@ -78,6 +84,7 @@ services:
   alloy:
     image: docker.io/grafana/alloy:latest
     container_name: monitor-alloy
+    user: "0:0"
     restart: unless-stopped
     command:
       - "run"
@@ -86,7 +93,7 @@ services:
     volumes:
       - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
       - alloy-data:/var/lib/alloy/data
-      - /run/user/${UID}/podman/podman.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     security_opt:
       - label=disable
     networks:
@@ -94,8 +101,7 @@ services:
 
 networks:
   monitoring:
-    external: true
-    name: podman-monitoring
+    name: docker-monitoring
 
 volumes:
   grafana-data:
