@@ -6,7 +6,8 @@ Local observability for Linux hosts running rootful Docker Engine:
 - Prometheus: metrics storage
 - cAdvisor: container CPU, memory and network metrics
 - Node Exporter: host metrics
-- Loki and Grafana Alloy: container logs
+- Loki and Grafana Alloy: container logs grouped by project/service in Logs Drilldown
+- Tempo 2.9.0: OTLP traces with seven-day local retention and TraceQL metrics
 
 ## Requirements
 
@@ -61,6 +62,8 @@ metrics are not converted into cAdvisor metrics.
 | Grafana | http://localhost:3000 |
 | Prometheus | http://localhost:9090 |
 | Loki | http://localhost:3100 |
+| Tempo API | http://localhost:3200 |
+| OTLP gRPC / HTTP | localhost:4317 / http://localhost:4318 |
 
 Grafana's initial credentials are `admin` / `admin` (existing volumes retain
 previous credentials). Change them after first login. The published ports bind
@@ -113,7 +116,80 @@ In Grafana → Explore → Loki:
 docker compose logs --tail=50 alloy loki
 ```
 
+## Project Logs and Drilldown
+
+Open **Grafana → Drilldown → Logs**, select **Loki**, and use **Last 15 minutes**.
+Filter `project` by the Docker Compose project name, then select `service_name`.
+Alloy collects stdout/stderr from all containers on this Docker daemon, including
+other projects. Compose labels become `project` and `service_name`; standalone
+containers use their container name as `service_name`. The `container` label is
+retained. New labels apply to newly collected entries, not historical logs.
+
+```logql
+{project="observability", service_name="grafana"}
+```
+
+Loki enables pattern ingestion, structured metadata, volume queries and log-level
+detection as described in the [Logs Drilldown configuration](https://grafana.com/docs/grafana/latest/visualizations/simplified-exploration/logs/access/).
+Applications should emit JSON with `level`, `message`, and optionally `trace_id`.
+File-only logs require a separate file collector and are not discovered automatically.
+
+## Traces with Tempo
+
+Apply the configuration (existing volumes are retained):
+
+```bash
+docker compose up -d tempo grafana loki
+docker compose restart alloy prometheus
+```
+
+Instrument your application with an OpenTelemetry SDK or automatic instrumentation.
+Tempo does not generate application traces from container logs. For an application
+running on the host, configure:
+
+```bash
+OTEL_SERVICE_NAME=api
+OTEL_RESOURCE_ATTRIBUTES=service.namespace=my-project
+OTEL_TRACES_EXPORTER=otlp
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+```
+
+For a container, join the external `docker-monitoring` network and use
+`http://tempo:4318` (or `tempo:4317` for gRPC). Set `OTEL_SERVICE_NAME` to the
+Compose service name so trace-to-log links match `service_name`. Include the
+active trace ID in application logs to use trace filtering. When using a proxy,
+include `tempo` and `monitor-tempo` in the application's `NO_PROXY` / `no_proxy`.
+Grafana includes these exclusions through Compose.
+
+Open **Grafana → Explore → Tempo** or **Drilldown → Traces** and query:
+
+```traceql
+{ resource.service.name = "api" }
+```
+
+Tempo enables the `local-blocks` processor for TraceQL metrics used by Traces
+Drilldown. Service-graph and span-metric export to Prometheus are not configured.
+Prometheus scrapes Tempo's own operational metrics at `tempo:3200/metrics`.
+OTLP and Tempo API host ports bind to loopback; containers use the shared network.
+The configuration follows the [Tempo 2.9 example](https://github.com/grafana/tempo/blob/v2.9.0/example/docker-compose/local/tempo.yaml).
+
 ## Troubleshooting
+
+### Logs are ingested but Drilldown queries time out
+
+If Loki reports `error notifying frontend` with a Squid `403 Forbidden`, its
+internal gRPC traffic is being sent through the proxy inherited from `.env`.
+This local-filesystem deployment sets `NO_PROXY=*` and `no_proxy=*` for Loki so
+advertised Docker IPs are reached directly. Recreate Loki with
+`docker compose up -d loki`; a restart alone does not apply environment changes.
+
+Grafana also always appends internal service names to its proxy exclusions,
+because shell environment variables can override `.env` during Compose expansion.
+The Loki datasource sends `X-Scope-OrgID: fake`, the single-tenant storage tenant,
+because Loki 3.7.8's `drilldown-limits` endpoint otherwise returns `401 no org id`
+even when authentication is disabled. Check both the volume and drilldown-limits
+resources through Grafana when troubleshooting the Drilldown UI.
 
 ### Docker socket permission denied
 

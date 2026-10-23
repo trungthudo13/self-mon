@@ -27,3 +27,28 @@ datasources:
     access: proxy
     url: http://loki:3100
     editable: true
+    # Loki's drilldown-limits endpoint requires a tenant header even with
+    # auth_enabled: false. "fake" is Loki's single-tenant storage tenant.
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: fake
+  - name: Tempo
+    uid: tempo
+    orgId: 1
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: true
+    jsonData:
+      nodeGraph:
+        enabled: true
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        tags:
+          - key: service.name
+            value: service_name
+        filterByTraceID: true
+        filterBySpanID: false
